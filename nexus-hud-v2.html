@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS — Dual Hand Holographic Interface</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cyan: #00d4ff; --blue: #0055cc; --deep: #000810;
+  --panel: rgba(0,12,30,0.92); --border: rgba(0,212,255,0.22);
+  --border-hi: rgba(0,212,255,0.6); --glow: 0 0 24px rgba(0,212,255,0.28);
+  --text: #c4e8f8; --dim: rgba(180,220,248,0.45);
+  --red: #ff3b00; --green: #00ff88; --amber: #ffaa00; --purple: #bb66ff;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--deep);color:var(--text);font-family:'Rajdhani',sans-serif;position:relative;}
+#stars-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+body::before{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background-image:linear-gradient(rgba(0,212,255,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.022) 1px,transparent 1px);
+  background-size:52px 52px;}
+body::after{content:'';position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);
+  animation:scan 14s linear infinite;}
+@keyframes scan{100%{background-position:0 200px;}}
+
+/* LAYOUT */
+#app{position:relative;z-index:10;height:100vh;display:grid;
+  grid-template-rows:56px 1fr 42px;grid-template-columns:192px 1fr 268px;
+  gap:1px;background:rgba(0,212,255,0.08);}
+
+/* TOP BAR */
+#topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 16px;gap:14px;
+  background:rgba(0,8,22,0.98);border-bottom:1px solid var(--border);}
+.logo{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:var(--cyan);
+  letter-spacing:8px;filter:drop-shadow(0 0 12px rgba(0,212,255,0.7));flex-shrink:0;}
+.logo em{color:#fff;font-style:normal;font-weight:400;}
+#clock{font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--cyan);min-width:195px;}
+#loc{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);}
+.spacer{flex:1;}
+.spills{display:flex;gap:12px;align-items:center;}
+.spill{display:flex;align-items:center;gap:5px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green);animation:blink 2s infinite;}
+.dot.a{background:var(--amber);box-shadow:0 0 7px var(--amber);}
+.dot.p{background:var(--purple);box-shadow:0 0 7px var(--purple);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+#gtag{font-family:'Share Tech Mono',monospace;font-size:10px;padding:3px 10px;
+  border:1px solid var(--border-hi);color:var(--cyan);background:rgba(0,212,255,0.08);
+  min-width:230px;text-align:center;animation:bb 2.5s infinite;}
+@keyframes bb{0%,100%{border-color:rgba(0,212,255,.6)}50%{border-color:rgba(0,212,255,.12)}}
+
+/* NAV */
+#nav{background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.nst{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--dim);
+  padding:10px 13px 6px;letter-spacing:2px;border-bottom:1px solid rgba(0,212,255,0.07);}
+.ni{padding:11px 13px;cursor:pointer;border-bottom:1px solid rgba(0,212,255,0.055);
+  display:flex;align-items:center;gap:8px;transition:background .16s;position:relative;}
+.ni::before{content:'';width:2px;height:0;background:var(--cyan);box-shadow:0 0 6px var(--cyan);
+  position:absolute;left:0;top:50%;transform:translateY(-50%);transition:height .16s;}
+.ni:hover,.ni.active{background:rgba(0,212,255,0.07);}
+.ni:hover::before,.ni.active::before{height:55%;}
+.ni.active{color:var(--cyan);}
+.nico{font-size:12px;width:17px;text-align:center;opacity:.6;}
+.nlb{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;flex:1;}
+.nbg{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);background:rgba(0,212,255,0.12);padding:1px 4px;border-radius:2px;}
+.nbg.nw{background:rgba(255,59,0,.16);color:var(--red);}
+
+/* CAM */
+#cam-wrap{margin:auto 12px 12px;border:1px solid var(--border);background:#000;position:relative;aspect-ratio:4/3;}
+#cam-wrap::before{content:'DUAL GESTURE CAM';position:absolute;top:-16px;left:0;
+  font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--dim);letter-spacing:1px;}
+.corner{position:absolute;width:9px;height:9px;border-color:var(--cyan);border-style:solid;}
+.c-tl{top:3px;left:3px;border-width:1px 0 0 1px;}
+.c-tr{top:3px;right:3px;border-width:1px 1px 0 0;}
+.c-bl{bottom:3px;left:3px;border-width:0 0 1px 1px;}
+.c-br{bottom:3px;right:3px;border-width:0 1px 1px 0;}
+#video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1);}
+#hand-canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);}
+#cam-btn{position:absolute;inset:0;background:rgba(0,0,0,.85);border:none;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;width:100%;padding:0;}
+#cam-btn:hover{background:rgba(0,18,38,.88);}
+.cam-ring{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--cyan);
+  box-shadow:0 0 10px var(--cyan);display:flex;align-items:center;justify-content:center;color:var(--cyan);font-size:15px;}
+#cam-btn span{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);letter-spacing:1px;text-align:center;}
+
+/* HAND STATUS STRIP */
+#hand-strip{display:flex;gap:3px;padding:4px 6px;border-bottom:1px solid var(--border);}
+.hbox{flex:1;background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.12);
+  padding:3px 6px;font-family:'Share Tech Mono',monospace;font-size:8px;text-align:center;}
+.hbox .hlabel{color:var(--dim);letter-spacing:1px;margin-bottom:2px;}
+.hbox .hgest{color:var(--cyan);font-size:9px;min-height:12px;}
+.hbox.left-hand .hgest{color:var(--amber);}
+.hbox.right-hand .hgest{color:var(--cyan);}
+
+/* FEED */
+#feed{background:rgba(0,6,18,0.94);overflow-y:auto;padding:13px;}
+#feed::-webkit-scrollbar{width:3px;}
+#feed::-webkit-scrollbar-thumb{background:var(--border-hi);}
+.fhd{display:flex;align-items:center;gap:9px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.ftit{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;color:var(--cyan);letter-spacing:3px;}
+.ltag{background:var(--red);color:#fff;font-family:'Share Tech Mono',monospace;font-size:7px;padding:2px 6px;letter-spacing:2px;animation:blink 1s infinite;}
+.uinf{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--dim);}
+.featured{background:rgba(0,40,80,0.2);border:1px solid rgba(0,212,255,0.26);border-left:3px solid var(--cyan);
+  padding:13px;margin-bottom:9px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.featured::after{content:'';position:absolute;top:0;left:-120%;width:55%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(0,212,255,0.04),transparent);animation:shine 4s infinite;}
+@keyframes shine{100%{left:200%;}}
+.featured:hover{border-color:rgba(0,212,255,.6);background:rgba(0,55,110,.2);box-shadow:var(--glow);}
+.featured.gest-hover{border-color:rgba(0,212,255,.9);box-shadow:0 0 20px rgba(0,212,255,.4);background:rgba(0,70,130,.25);}
+.card-meta{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.src{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--cyan);background:rgba(0,212,255,.09);padding:2px 5px;border:1px solid rgba(0,212,255,.17);}
+.ts{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--dim);}
+.ctit{font-size:15px;font-weight:700;color:#deeeff;line-height:1.3;margin-bottom:6px;}
+.csum{font-size:11px;color:var(--dim);line-height:1.5;}
+.imp{height:2px;background:rgba(0,212,255,.09);margin-top:8px;overflow:hidden;}
+.impf{height:100%;background:var(--cyan);box-shadow:0 0 5px var(--cyan);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px;}
+.sc{background:rgba(0,16,40,.5);border:1px solid var(--border);padding:10px;cursor:pointer;transition:all .2s;}
+.sc:hover{border-color:rgba(0,212,255,.48);}
+.sc.gest-hover{border-color:rgba(0,212,255,.9);box-shadow:0 0 12px rgba(0,212,255,.3);}
+.sc .ctit{font-size:11px;margin-bottom:4px;}
+.sc .csum{font-size:9px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.ndot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 4px var(--green);margin-right:3px;animation:blink 1s infinite;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+.ani{animation:fadeIn .28s ease forwards;}
+
+/* JOURNALS */
+#journals{background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.pnlh{padding:10px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;}
+.ptit{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:var(--cyan);letter-spacing:2px;}
+.sw{padding:6px;border-bottom:1px solid var(--border);}
+.sinp{width:100%;background:rgba(0,212,255,.05);border:1px solid var(--border);color:var(--text);
+  padding:5px 8px;font-family:'Share Tech Mono',monospace;font-size:9px;outline:none;transition:border .2s;}
+.sinp:focus{border-color:rgba(0,212,255,.5);}
+.sinp::placeholder{color:var(--dim);}
+.jlist{flex:1;overflow-y:auto;padding:6px;}
+.jlist::-webkit-scrollbar{width:2px;}
+.jlist::-webkit-scrollbar-thumb{background:var(--border);}
+.ji{padding:8px 10px;border:1px solid var(--border);margin-bottom:4px;cursor:pointer;transition:all .2s;background:rgba(0,8,24,.5);}
+.ji:hover{border-color:rgba(0,212,255,.48);}
+.ji.gest-hover{border-color:rgba(255,170,0,.8);box-shadow:0 0 10px rgba(255,170,0,.25);}
+.jt{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--amber);letter-spacing:2px;margin-bottom:2px;text-transform:uppercase;}
+.jtit{font-size:10px;font-weight:600;color:var(--text);line-height:1.3;margin-bottom:2px;}
+.jme{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--dim);}
+.aib{display:inline-block;background:rgba(0,212,255,.1);color:var(--cyan);border:1px solid rgba(0,212,255,.22);font-family:'Share Tech Mono',monospace;font-size:6px;padding:1px 3px;margin-left:3px;vertical-align:middle;}
+
+/* TICKER */
+#ticker{grid-column:1/-1;background:rgba(0,22,48,.98);border-top:1px solid var(--border);display:flex;align-items:center;overflow:hidden;}
+.tlb{flex-shrink:0;background:var(--red);color:#fff;font-family:'Orbitron',monospace;font-size:7px;font-weight:700;
+  padding:0 11px;height:100%;display:flex;align-items:center;letter-spacing:3px;}
+.tsc{flex:1;overflow:hidden;}
+.tin{white-space:nowrap;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);
+  padding:0 18px;animation:ticker 85s linear infinite;}
+@keyframes ticker{0%{transform:translateX(110%)}100%{transform:translateX(-100%)}}
+.tsep{color:var(--cyan);padding:0 16px;}
+
+/* GESTURE CURSORS — L & R */
+.gcursor{position:fixed;pointer-events:none;z-index:500;transform:translate(-50%,-50%);
+  width:26px;height:26px;border-radius:50%;border:1.5px solid;transition:width .07s,height .07s,background .07s;}
+#gcR{border-color:var(--cyan);box-shadow:0 0 12px var(--cyan);display:none;}
+#gcL{border-color:var(--amber);box-shadow:0 0 12px var(--amber);display:none;}
+#gcR.pinching{width:13px;height:13px;background:rgba(0,212,255,.35);}
+#gcL.pinching{width:13px;height:13px;background:rgba(255,170,0,.35);}
+#gcR.pointing{border-color:var(--green);box-shadow:0 0 10px var(--green);}
+#gcR::after{content:'R';position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);
+  font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--cyan);}
+#gcL::after{content:'L';position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);
+  font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--amber);}
+
+/* GESTURE HUD PANEL */
+#ghud{position:fixed;top:66px;right:16px;z-index:300;background:rgba(0,12,30,.96);
+  border:1px solid var(--border-hi);padding:0;pointer-events:none;min-width:200px;display:none;}
+#ghud.show{display:block;}
+.ghud-head{padding:6px 10px;border-bottom:1px solid var(--border);
+  font-family:'Orbitron',monospace;font-size:8px;color:var(--cyan);letter-spacing:2px;}
+.ghud-row{padding:5px 10px;border-bottom:1px solid rgba(0,212,255,0.07);display:flex;gap:8px;align-items:center;}
+.ghud-icon{font-size:13px;width:20px;text-align:center;}
+.ghud-desc{flex:1;}
+.ghud-name{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);}
+.ghud-action{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--dim);}
+.ghud-active{background:rgba(0,212,255,0.08);}
+.ghud-active .ghud-name{color:var(--green);}
+.hand-tag{font-family:'Share Tech Mono',monospace;font-size:6px;padding:1px 4px;border-radius:2px;}
+.r-tag{background:rgba(0,212,255,.15);color:var(--cyan);}
+.l-tag{background:rgba(255,170,0,.15);color:var(--amber);}
+.b-tag{background:rgba(187,102,255,.15);color:var(--purple);}
+
+/* MODAL */
+#modal{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;background:rgba(0,4,12,.92);}
+#modal.open{display:flex;}
+.mbox{background:rgba(0,12,30,.99);border:1px solid rgba(0,212,255,.36);max-width:660px;width:92%;
+  max-height:80vh;overflow-y:auto;padding:26px;box-shadow:0 0 60px rgba(0,212,255,.16);position:relative;}
+.mbox::-webkit-scrollbar{width:3px;}
+.mbox::-webkit-scrollbar-thumb{background:var(--border-hi);}
+#mbclose{position:absolute;top:12px;right:12px;background:transparent;border:1px solid var(--border);
+  color:var(--text);width:26px;height:26px;cursor:pointer;font-size:13px;display:flex;
+  align-items:center;justify-content:center;transition:all .2s;}
+#mbclose:hover{border-color:var(--red);color:var(--red);}
+#mcat{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);letter-spacing:3px;margin-bottom:9px;}
+#mtit{font-family:'Rajdhani',sans-serif;font-size:21px;font-weight:700;color:#ddf0ff;line-height:1.3;margin-bottom:9px;}
+.mmeta{display:flex;gap:13px;margin-bottom:16px;padding-bottom:13px;border-bottom:1px solid var(--border);}
+#mbody{font-size:12px;line-height:1.72;color:var(--dim);}
+#mbody p{margin-bottom:10px;}
+
+/* VIRTUAL KEYBOARD */
+#vkb{position:fixed;bottom:52px;left:50%;transform:translateX(-50%);z-index:450;
+  background:rgba(0,10,28,.97);border:1px solid var(--border-hi);padding:12px;
+  display:none;min-width:580px;box-shadow:0 0 40px rgba(0,212,255,.2);}
+#vkb.open{display:block;}
+#vkb-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+#vkb-title{font-family:'Orbitron',monospace;font-size:9px;color:var(--cyan);letter-spacing:3px;flex:1;}
+#vkb-mode{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--amber);}
+#vkb-display{background:rgba(0,212,255,.05);border:1px solid var(--border);padding:7px 10px;
+  font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--cyan);
+  min-height:34px;margin-bottom:9px;letter-spacing:2px;word-break:break-all;}
+.vkb-row{display:flex;gap:4px;justify-content:center;margin-bottom:4px;}
+.vkey{background:rgba(0,40,90,.5);border:1px solid rgba(0,212,255,.22);color:var(--text);
+  font-family:'Share Tech Mono',monospace;font-size:10px;min-width:36px;height:32px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;user-select:none;letter-spacing:1px;}
+.vkey:hover,.vkey.gest-hover{background:rgba(0,212,255,.18);border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 8px rgba(0,212,255,.3);}
+.vkey.wide{min-width:60px;}
+.vkey.xwide{min-width:90px;}
+.vkey.space{flex:1;max-width:240px;}
+.vkey.action{color:var(--cyan);border-color:rgba(0,212,255,.4);}
+.vkey.del{color:var(--red);border-color:rgba(255,59,0,.3);}
+#vkb-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:8px;}
+.vkb-btn{background:transparent;border:1px solid var(--border);color:var(--dim);
+  font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;cursor:pointer;transition:all .2s;}
+.vkb-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.vkb-btn.submit{border-color:rgba(0,255,136,.35);color:var(--green);}
+.vkb-btn.cls{border-color:rgba(255,59,0,.35);color:var(--red);}
+
+/* GESTURE TOAST */
+#gtoast{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:450;
+  background:rgba(0,10,28,.97);border:1px solid var(--border-hi);padding:8px 20px;
+  font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--cyan);
+  pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap;}
+#gtoast.show{opacity:1;}
+
+/* TWO-HAND INDICATOR */
+#twohand-ind{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:600;
+  pointer-events:none;opacity:0;transition:opacity .25s;text-align:center;}
+#twohand-ind.show{opacity:1;}
+.th-ring{width:80px;height:80px;border-radius:50%;border:2px solid var(--purple);
+  box-shadow:0 0 30px var(--purple);display:flex;align-items:center;justify-content:center;
+  margin:0 auto 8px;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 20px var(--purple)}50%{box-shadow:0 0 50px var(--purple)}}
+.th-label{font-family:'Orbitron',monospace;font-size:11px;color:var(--purple);letter-spacing:3px;}
+</style>
+</head>
+<body>
+<canvas id="stars-canvas"></canvas>
+
+<div id="app">
+  <header id="topbar">
+    <div class="logo">NE<em>X</em>US</div>
+    <div id="clock"></div>
+    <div id="loc">◈ TIRUCHIRAPPALLI · TN · IN</div>
+    <div class="spacer"></div>
+    <div class="spills">
+      <div class="spill"><div class="dot"></div>FEEDS LIVE</div>
+      <div class="spill"><div class="dot a"></div>SOURCES:1,240</div>
+      <div class="spill"><div class="dot p"></div>DUAL-HAND</div>
+      <div id="gtag">⊙ CAM OFFLINE — CLICK TO ACTIVATE</div>
+    </div>
+  </header>
+
+  <nav id="nav">
+    <div id="hand-strip">
+      <div class="hbox left-hand"><div class="hlabel">LEFT ◈</div><div class="hgest" id="hl-gest">—</div></div>
+      <div class="hbox right-hand"><div class="hlabel">RIGHT ◈</div><div class="hgest" id="hr-gest">—</div></div>
+    </div>
+    <div class="nst">// NEWS TIER</div>
+    <div class="ni active" data-cat="world"><div class="nico">◈</div><div class="nlb">World</div><div class="nbg" id="bw">14</div></div>
+    <div class="ni" data-cat="national"><div class="nico">◉</div><div class="nlb">National</div><div class="nbg" id="bn">9</div></div>
+    <div class="ni" data-cat="state"><div class="nico">◎</div><div class="nlb">Tamil Nadu</div><div class="nbg" id="bs">17</div></div>
+    <div class="ni" data-cat="district"><div class="nico">◍</div><div class="nlb">District</div><div class="nbg nw" id="bd">31</div></div>
+    <div class="nst">// TOPICS</div>
+    <div class="ni" data-cat="tech"><div class="nico">⬡</div><div class="nlb">Technology</div></div>
+    <div class="ni" data-cat="science"><div class="nico">⬡</div><div class="nlb">Science</div></div>
+    <div class="ni" data-cat="health"><div class="nico">⬡</div><div class="nlb">Health</div></div>
+    <div class="ni" data-cat="economy"><div class="nico">⬡</div><div class="nlb">Economy</div></div>
+
+    <div id="cam-wrap">
+      <video id="video" playsinline></video>
+      <canvas id="hand-canvas"></canvas>
+      <div class="corner c-tl"></div><div class="corner c-tr"></div>
+      <div class="corner c-bl"></div><div class="corner c-br"></div>
+      <button id="cam-btn">
+        <div class="cam-ring">⊙</div>
+        <span>DUAL-HAND GESTURE CAM<br>Click to enable webcam</span>
+      </button>
+    </div>
+  </nav>
+
+  <main id="feed">
+    <div class="fhd">
+      <div class="ftit" id="ftit">WORLD INTELLIGENCE</div>
+      <div class="ltag">LIVE</div>
+      <div class="uinf" id="uinf">SYNCING...</div>
+    </div>
+    <div id="feed-content"></div>
+  </main>
+
+  <aside id="journals">
+    <div class="pnlh"><div class="ptit">JOURNALS & ARTICLES</div></div>
+    <div class="sw"><input type="text" class="sinp" id="srch" placeholder="SEARCH PUBLICATIONS..." autocomplete="off"></div>
+    <div class="jlist" id="jlist"></div>
+  </aside>
+
+  <div id="ticker">
+    <div class="tlb">BREAKING</div>
+    <div class="tsc"><div class="tin" id="tin"></div></div>
+  </div>
+</div>
+
+<!-- Gesture cursors -->
+<div class="gcursor" id="gcR"></div>
+<div class="gcursor" id="gcL"></div>
+
+<!-- Two-hand indicator -->
+<div id="twohand-ind">
+  <div class="th-ring" id="th-ring-icon">✦</div>
+  <div class="th-label" id="th-label">BOTH HANDS</div>
+</div>
+
+<!-- Gesture HUD -->
+<div id="ghud">
+  <div class="ghud-head">◈ GESTURE REFERENCE</div>
+  <div class="ghud-row" id="gh-point"><div class="ghud-icon">☝</div><div class="ghud-desc"><div class="ghud-name">POINT <span class="hand-tag r-tag">R</span></div><div class="ghud-action">Cursor control</div></div></div>
+  <div class="ghud-row" id="gh-pinch"><div class="ghud-icon">🤏</div><div class="ghud-desc"><div class="ghud-name">PINCH <span class="hand-tag r-tag">R</span></div><div class="ghud-action">Select / Click</div></div></div>
+  <div class="ghud-row" id="gh-palm"><div class="ghud-icon">🖐</div><div class="ghud-desc"><div class="ghud-name">OPEN PALM <span class="hand-tag r-tag">R</span></div><div class="ghud-action">Scroll feed</div></div></div>
+  <div class="ghud-row" id="gh-peace"><div class="ghud-icon">✌</div><div class="ghud-desc"><div class="ghud-name">PEACE <span class="hand-tag r-tag">R</span></div><div class="ghud-action">Bookmark article</div></div></div>
+  <div class="ghud-row" id="gh-swipe"><div class="ghud-icon">👋</div><div class="ghud-desc"><div class="ghud-name">SWIPE L/R <span class="hand-tag l-tag">L</span></div><div class="ghud-action">Change category</div></div></div>
+  <div class="ghud-row" id="gh-lpinch"><div class="ghud-icon">🤏</div><div class="ghud-desc"><div class="ghud-name">PINCH <span class="hand-tag l-tag">L</span></div><div class="ghud-action">Open keyboard</div></div></div>
+  <div class="ghud-row" id="gh-both-pinch"><div class="ghud-icon">🙌</div><div class="ghud-desc"><div class="ghud-name">BOTH PINCH <span class="hand-tag b-tag">L+R</span></div><div class="ghud-action">CLOSE everything</div></div></div>
+  <div class="ghud-row" id="gh-spread"><div class="ghud-icon">🤲</div><div class="ghud-desc"><div class="ghud-name">SPREAD APART <span class="hand-tag b-tag">L+R</span></div><div class="ghud-action">Expand article</div></div></div>
+  <div class="ghud-row" id="gh-clap"><div class="ghud-icon">👏</div><div class="ghud-desc"><div class="ghud-name">CLAP/TOGETHER <span class="hand-tag b-tag">L+R</span></div><div class="ghud-action">Refresh feed</div></div></div>
+  <div class="ghud-row" id="gh-cross"><div class="ghud-icon">🤞</div><div class="ghud-desc"><div class="ghud-name">BOTH POINT <span class="hand-tag b-tag">L+R</span></div><div class="ghud-action">Toggle gesture guide</div></div></div>
+</div>
+
+<!-- Toast -->
+<div id="gtoast"></div>
+
+<!-- Article modal -->
+<div id="modal">
+  <div class="mbox">
+    <button id="mbclose">✕</button>
+    <div id="mcat"></div>
+    <div id="mtit"></div>
+    <div class="mmeta"><span class="src" id="msrc"></span><span class="ts" id="mts"></span></div>
+    <div id="mbody"></div>
+  </div>
+</div>
+
+<!-- Virtual Keyboard -->
+<div id="vkb">
+  <div id="vkb-head">
+    <div id="vkb-title">◈ HOLOGRAPHIC KEYBOARD</div>
+    <div id="vkb-mode">POINT+PINCH TO TYPE</div>
+  </div>
+  <div id="vkb-display" id="vkb-text"></div>
+  <div class="vkb-row">
+    <div class="vkey" data-k="1">1</div><div class="vkey" data-k="2">2</div><div class="vkey" data-k="3">3</div>
+    <div class="vkey" data-k="4">4</div><div class="vkey" data-k="5">5</div><div class="vkey" data-k="6">6</div>
+    <div class="vkey" data-k="7">7</div><div class="vkey" data-k="8">8</div><div class="vkey" data-k="9">9</div>
+    <div class="vkey" data-k="0">0</div>
+  </div>
+  <div class="vkb-row">
+    <div class="vkey" data-k="Q">Q</div><div class="vkey" data-k="W">W</div><div class="vkey" data-k="E">E</div>
+    <div class="vkey" data-k="R">R</div><div class="vkey" data-k="T">T</div><div class="vkey" data-k="Y">Y</div>
+    <div class="vkey" data-k="U">U</div><div class="vkey" data-k="I">I</div><div class="vkey" data-k="O">O</div>
+    <div class="vkey" data-k="P">P</div>
+  </div>
+  <div class="vkb-row">
+    <div class="vkey" data-k="A">A</div><div class="vkey" data-k="S">S</div><div class="vkey" data-k="D">D</div>
+    <div class="vkey" data-k="F">F</div><div class="vkey" data-k="G">G</div><div class="vkey" data-k="H">H</div>
+    <div class="vkey" data-k="J">J</div><div class="vkey" data-k="K">K</div><div class="vkey" data-k="L">L</div>
+  </div>
+  <div class="vkb-row">
+    <div class="vkey" data-k="Z">Z</div><div class="vkey" data-k="X">X</div><div class="vkey" data-k="C">C</div>
+    <div class="vkey" data-k="V">V</div><div class="vkey" data-k="B">B</div><div class="vkey" data-k="N">N</div>
+    <div class="vkey" data-k="M">M</div><div class="vkey del" data-k="BACK">⌫</div>
+  </div>
+  <div class="vkb-row">
+    <div class="vkey action wide" data-k=".">.</div>
+    <div class="vkey space" data-k=" ">SPACE</div>
+    <div class="vkey action wide" data-k="CLEAR">CLR</div>
+  </div>
+  <div id="vkb-actions">
+    <button class="vkb-btn cls" id="vkb-close">✕ CLOSE [BOTH PINCH]</button>
+    <button class="vkb-btn submit" id="vkb-search">◈ SEARCH FEED</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+// STAR FIELD
+// ═══════════════════════════════════════════════════════════
+(()=>{
+  const c=document.getElementById('stars-canvas'),ctx=c.getContext('2d');
+  let stars=[];
+  const resize=()=>{c.width=window.innerWidth;c.height=window.innerHeight;};
+  window.addEventListener('resize',resize);resize();
+  for(let i=0;i<200;i++) stars.push({x:Math.random(),y:Math.random(),r:Math.random()*1.1+0.2,a:Math.random(),da:(Math.random()-.5)*.005});
+  const draw=()=>{
+    ctx.clearRect(0,0,c.width,c.height);
+    stars.forEach(s=>{s.a+=s.da;if(s.a<=0||s.a>=1)s.da*=-1;
+      ctx.beginPath();ctx.arc(s.x*c.width,s.y*c.height,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(180,220,255,${s.a*.65})`;ctx.fill();});
+    requestAnimationFrame(draw);
+  };draw();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// CLOCK
+// ═══════════════════════════════════════════════════════════
+function tick(){
+  const n=new Date(),p=v=>String(v).padStart(2,'0');
+  document.getElementById('clock').textContent=`${n.getFullYear()}.${p(n.getMonth()+1)}.${p(n.getDate())} — ${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())} IST`;
+}
+setInterval(tick,1000);tick();
+
+// ═══════════════════════════════════════════════════════════
+// NEWS DATA
+// ═══════════════════════════════════════════════════════════
+const newsDB={
+  world:[
+    {id:'w1',src:'REUTERS',time:'4m',imp:.95,title:'G7 Nations Announce $50B Climate Transition Fund for Developing Countries',sum:'Leaders from the G7 agreed to a landmark fund aimed at helping emerging economies shift away from fossil fuels, with first disbursements expected by Q3.',body:'<p>Finance ministers from G7 nations convened in an emergency session and reached a historic agreement to establish a dedicated Climate Transition Fund worth $50 billion. The fund is designed to help developing nations retire coal infrastructure and build renewable energy capacity.</p><p>The announcement came amid mounting pressure from the Global South. India and Brazil, which participated as observer nations, welcomed the development but called for faster disbursement timelines.</p><p>Initial tranches are expected to flow to Southeast Asia and sub-Saharan Africa, focusing on solar grid infrastructure and energy storage. Analysts project the fund could accelerate emission reductions by 8–12 gigatons of CO₂ equivalent by 2035.</p>'},
+    {id:'w2',src:'AFP',time:'11m',imp:.82,title:'UN Security Council Emergency Session Called Over Black Sea Shipping Disputes',sum:'Russia and Ukraine exchanged accusations over grain corridor violations, prompting an urgent convening of council members.',body:'<p>The UN Security Council was called into emergency session following incidents in the Black Sea grain corridor that disrupted shipment of over 4 million tonnes of agricultural commodities. Both sides accused each other of violating the Istanbul Grain Initiative framework.</p>'},
+    {id:'w3',src:'BBC',time:'23m',imp:.78,title:'South Korea and Japan Announce Joint AI Defense Research Initiative',sum:'The historic partnership marks a significant milestone in Northeast Asian diplomatic relations.',body:'<p>South Korea and Japan signed a bilateral agreement to jointly develop AI-driven defense systems. The partnership covers autonomous surveillance drones and cyber threat intelligence sharing, the first of its kind in over three decades.</p>'},
+    {id:'w4',src:'AP',time:'38m',imp:.70,title:'WHO Declares End to Mpox Public Health Emergency of International Concern',sum:'Health officials say vaccination campaigns and improved surveillance have brought outbreaks under control globally.',body:'<p>The WHO formally declared the end of the Mpox PHEIC, citing significant declines in case counts across all previously affected regions. WHO Director-General praised the global response but cautioned that surveillance must be maintained.</p>'},
+    {id:'w5',src:'ALJAZEERA',time:'52m',imp:.65,title:'ASEAN Bloc Moves Toward Regional Digital Currency Framework',sum:'The 10-nation bloc is exploring common digital payment infrastructure to reduce dollar dependency.',body:'<p>Senior ASEAN finance officials released a joint communiqué outlining a roadmap for a regional digital currency exchange framework — the ASEAN Digital Finance Bridge — aimed at near-instant cross-border payments in local currencies.</p>'},
+  ],
+  national:[
+    {id:'n1',src:'THE HINDU',time:'6m',imp:.92,title:'India GDP Grows at 7.4% in Q4, Outpacing All Major G20 Economies',sum:'Strong manufacturing output and robust domestic consumption drove growth figures that exceeded IMF projections by over half a percentage point.',body:'<p>India\'s GDP expanded at an annualized rate of 7.4% in Q4, according to the Ministry of Statistics. The figure surpassed the IMF forecast of 6.8% and reinforces India\'s position as the world\'s fastest-growing major economy.</p><p>Manufacturing grew at 8.1%, buoyed by PLI schemes and record FDI inflows. The Finance Minister reaffirmed commitment to fiscal consolidation while continuing elevated capital expenditure.</p>'},
+    {id:'n2',src:'NDTV',time:'18m',imp:.85,title:'ISRO Successfully Tests Scramjet Engine for Next-Generation Hypersonic Vehicle',sum:'The milestone brings India closer to hypersonic cruise missile and reusable launch vehicle capabilities.',body:'<p>ISRO announced a successful ground test of its advanced scramjet propulsion system at Sriharikota, achieving sustained supersonic combustion for 22 seconds — a new national record.</p>'},
+    {id:'n3',src:'TOI',time:'34m',imp:.78,title:'National Education Policy Gets ₹45,000 Crore Boost in Revised Budget',sum:'States incentivized to accelerate rollout of new curriculum frameworks and digital classroom infrastructure.',body:'<p>The Union Government announced a supplementary allocation of ₹45,000 crore toward NEP implementation, focusing on digital smart classrooms in rural schools, upgraded teacher training, and new skill development centers.</p>'},
+    {id:'n4',src:'HT',time:'55m',imp:.70,title:'Supreme Court Mandates AI-Assisted Bail Processing in Overcrowded Jails',sum:'Landmark ruling orders prison authorities to deploy algorithmic risk assessment tools within six months.',body:'<p>The Supreme Court issued a directive requiring all state prison systems to adopt AI-assisted risk assessment frameworks for bail decisions within six months, addressing severe overcrowding. Over 77% of inmates are undertrials.</p>'},
+  ],
+  state:[
+    {id:'s1',src:'THE HINDU TN',time:'2m',imp:.93,title:'Tamil Nadu Launches ₹12,000 Crore Green Hydrogen Hub at Tuticorin Port',sum:'The coastal industrial zone will anchor India\'s largest green hydrogen production cluster, creating 80,000 jobs.',body:'<p>Tamil Nadu CM unveiled a ₹12,000 crore Green Hydrogen Industrial Hub at Tuticorin Port. The project will produce 0.8 million tonnes of green hydrogen annually by 2030, backed by domestic and foreign energy majors.</p>'},
+    {id:'s2',src:'DINAMALAR',time:'14m',imp:.87,title:'Chennai Metro Phase 3 Construction Begins; Airport–Porur Link Prioritized',sum:'The 116-km expansion will add 128 new stations and transform urban mobility for 3.5M daily commuters.',body:'<p>The CMRL formally commenced Phase 3 civil construction, adding 116 km of elevated and underground metro corridors. The first corridor connects Chennai International Airport with Porur junction.</p>'},
+    {id:'s3',src:'DECCAN HERALD TN',time:'29m',imp:.80,title:'Record 98.4% Literacy Rate Achieved in Tamil Nadu, Leads All States',sum:'Newly released survey data confirms Tamil Nadu\'s position as India\'s most literate major state.',body:'<p>An NSO survey of 800,000+ households recorded a literacy rate of 98.4% — the highest among major Indian states, a 3.2 percentage point improvement over the previous measurement.</p>'},
+    {id:'s4',src:'PUTHIYA THALAIMURAI',time:'47m',imp:.73,title:'Cauvery Delta Farmers Receive Smart Irrigation Kits Under State Agri Scheme',sum:'IoT-enabled soil moisture monitoring devices cover 2.8 lakh acres across Thanjavur and Nagapattinam.',body:'<p>Under the CM\'s Precision Agriculture Initiative, the TN Agriculture Department is distributing IoT-enabled smart irrigation kits to delta farmers, including soil moisture sensors, automated drip control units, and cloud-linked dashboards.</p>'},
+  ],
+  district:[
+    {id:'d1',src:'TRICHY MIRROR',time:'1m',imp:.97,title:'Trichy Smart City Deploys AI Traffic Management at 48 Junctions',sum:'Real-time adaptive signal control reduces average commute times by 22% in pilot corridors.',body:'<p>Tiruchirappalli Smart City Mission activated an AI-powered adaptive traffic system at 48 major intersections. The system, developed with IIT Madras, uses computer vision to adjust signal timings every 30 seconds, reducing commute times by 22% and emissions by 31%.</p><p>The technology will expand to 120 additional intersections by year-end, covering the entire inner ring road network.</p>'},
+    {id:'d2',src:'TRICHY TIMES',time:'7m',imp:.88,title:'Rock Fort Gets 4,000 LED Lights and New Sound-Light Show',sum:'A ₹8.5 crore project revamps the iconic Rock Fort complex with energy-efficient lighting and nightly heritage show.',body:'<p>Tiruchirappalli Corporation sanctioned ₹8.5 crore for illumination upgrades at Rock Fort and Ucchi Pillayar Temple. Over 4,000 programmable LED lights will replace sodium vapour fittings, with a new 30-minute sound-and-light show starting this November.</p>'},
+    {id:'d3',src:'KAVERI NEWS',time:'16m',imp:.84,title:'Trichy Airport Handles Record 1.2 Million Passengers in Q1 2026',sum:'International travellers lead growth, with Singapore, KL and Dubai flights seeing 40% seat fill increase.',body:'<p>Tiruchirappalli International Airport handled a record 1.2 million passengers in Q1 2026, a 28% year-on-year increase. International flights to Singapore, Kuala Lumpur and Dubai averaged 87% seat factor, up from 64% last year.</p>'},
+    {id:'d4',src:'TRICHY DAILY',time:'29m',imp:.79,title:'BEL Trichy Bags ₹2,200 Crore Order for Electronic Warfare Systems',sum:'Largest contract in the unit\'s history, generating 1,200 new direct jobs.',body:'<p>Bharat Electronics Limited Tiruchirappalli secured a ₹2,200 crore contract from the Ministry of Defence for advanced electronic warfare systems for the IAF. The 36-month order is the largest in BEL Trichy\'s history.</p>'},
+    {id:'d5',src:'TRICHY HERALD',time:'41m',imp:.75,title:'Cauvery Water Level at Grand Anicut Rises to 18.4 Feet',sum:'Sustained inflows stabilise water availability for the samba paddy season.',body:'<p>The Grand Anicut water level has risen to 18.4 feet as sustained inflows from Mettur Stanley reservoir continue. Farmers across the Cauvery delta expressed relief, ensuring adequate supply for the samba paddy cultivation season.</p>'},
+    {id:'d6',src:'TRICHY POST',time:'58m',imp:.70,title:'NIIT Tiruchirappalli Launches Free AI Upskilling for 5,000 Youth',sum:'Six-month programme targets engineering graduates and diploma holders for AI and data science careers.',body:'<p>NIIT Tiruchirappalli, with the Tamil Nadu Skill Development Corporation, launched a fully subsidised AI and data science programme for 5,000 graduates in the Trichy region. The six-month course covers ML, Python, cloud computing, and industry capstone projects.</p>'},
+  ],
+  tech:[
+    {id:'t1',src:'WIRED',time:'8m',imp:.90,title:'Google DeepMind Achieves Protein Structure Prediction at Quantum Scale',sum:'AlphaFold 4 accurately maps protein-ligand interactions at femtosecond resolution, transforming drug discovery.',body:'<p>Google DeepMind researchers demonstrated that AlphaFold 4 can predict protein-ligand binding dynamics at femtosecond temporal resolution — a capability that could fundamentally transform computational drug discovery.</p>'},
+    {id:'t2',src:'THE VERGE',time:'19m',imp:.82,title:'OpenAI Releases GPT-5 with Real-Time Vision-Audio Fusion and World Understanding',sum:'The multimodal system demonstrates unprecedented reasoning over live video streams and spatial environments.',body:'<p>OpenAI publicly released GPT-5, a fully multimodal model capable of reasoning over live video, spatial audio, and sensor data simultaneously. Early evaluations show human-level performance on video-based reasoning benchmarks.</p>'},
+    {id:'t3',src:'MIT TECH REVIEW',time:'44m',imp:.78,title:'Quantum Error Correction Breakthrough Achieves 99.9% Gate Fidelity at Scale',sum:'IBM and Google independently report surpassing key fidelity thresholds needed for practical quantum computing.',body:'<p>IBM Quantum and Google Quantum AI independently report achieving 99.9% two-qubit gate fidelity across 100-qubit systems using novel surface code implementations — a critical prerequisite for fault-tolerant quantum computing.</p>'},
+  ],
+  science:[
+    {id:'sc1',src:'NATURE',time:'12m',imp:.88,title:'Astronomers Detect Clear Biosignature Signals in Atmosphere of K2-18b Exoplanet',sum:'JWST data shows strong evidence of dimethyl sulfide, a compound exclusively produced by living organisms on Earth.',body:'<p>Astronomers using the James Webb Space Telescope published compelling evidence of dimethyl sulfide in the atmosphere of K2-18b, 120 light-years away. On Earth, DMS is produced exclusively by phytoplankton and bacteria, making this the most significant biosignature detection to date.</p>'},
+    {id:'sc2',src:'SCIENCE',time:'35m',imp:.80,title:'CERN Discovers Three New Exotic Hadrons in LHC Run 4 Data',sum:'The particles, predicted by quantum chromodynamics but never observed, could rewrite understanding of strong nuclear force.',body:'<p>CERN physicists announced discovery of three previously unobserved exotic hadron states — X(7200), Z(6900)b, and T(4155)cc — in comprehensive Run 4 data analysis. These particles had eluded detection for decades despite theoretical predictions.</p>'},
+  ],
+  health:[
+    {id:'h1',src:'LANCET',time:'21m',imp:.91,title:'Universal Cancer Screening Blood Test Achieves 96% Sensitivity in Phase 3 Trial',sum:'The liquid biopsy assay detects 18 cancer types from a single blood draw, years before symptomatic onset.',body:'<p>A landmark Phase 3 trial published in The Lancet reports a next-generation multi-cancer early detection blood test achieving 96% sensitivity and 99.5% specificity across 140,000 participants, detecting 18 cancer types including pancreatic, ovarian, and lung cancer.</p>'},
+    {id:'h2',src:'WHO',time:'47m',imp:.83,title:'WHO Certifies India Free of Guinea Worm Disease',sum:'India joins 27 other nations in eliminating the parasitic disease.',body:'<p>WHO officially certified India as free of Guinea Worm Disease following a decade-long elimination campaign. At its peak, the disease affected 3.5 million people in India annually.</p>'},
+  ],
+  economy:[
+    {id:'e1',src:'FT',time:'9m',imp:.89,title:'RBI Cuts Repo Rate by 50 Basis Points to 5.75%, Sensex Surges 1,400 Points',sum:'The surprise double cut signals a pivot to accommodative policy amid global uncertainty.',body:'<p>The RBI Monetary Policy Committee voted unanimously to cut the benchmark repo rate by 50 bps to 5.75%, the largest single-meeting reduction since the pandemic era, sending the BSE Sensex surging over 1,400 points.</p>'},
+    {id:'e2',src:'BLOOMBERG',time:'33m',imp:.82,title:'India Overtakes Germany as World\'s Third Largest Economy by Nominal GDP',sum:'IMF data confirms India crossed $5.1 trillion GDP, two years ahead of projections.',body:'<p>IMF quarterly data confirms India\'s nominal GDP crossed $5.1 trillion, surpassing Germany\'s $4.98 trillion to claim third position in global economic rankings — two years ahead of economists\' projections.</p>'},
+  ]
+};
+
+const journalsDB=[
+  {type:'PEER-REVIEWED',title:'Advancements in Large Language Model Reasoning: A Systematic Review',meta:'Nature Machine Intelligence · Apr 2026 · 48 cited',id:'j1'},
+  {type:'RESEARCH ARTICLE',title:'Quantum-Classical Hybrid Algorithms for Climate Modelling at Exascale',meta:'Physical Review Letters · Apr 2026 · 12 cited',id:'j2'},
+  {type:'OPINION',title:'The Geopolitics of Semiconductor Supply Chains: Restructuring for Resilience',meta:'Foreign Affairs · Mar 2026',id:'j3'},
+  {type:'MEDICAL JOURNAL',title:'CRISPR Base Editing for Sickle Cell Anaemia: 5-Year Follow-up Data',meta:'NEJM · Mar 2026 · 91 cited',id:'j4'},
+  {type:'ECONOMICS PAPER',title:'Digital Public Infrastructure and Financial Inclusion: India Stack Case Study',meta:'World Bank Working Paper · Feb 2026 · 34 cited',id:'j5'},
+  {type:'POLICY BRIEF',title:'Regulatory Frameworks for Autonomous Vehicles in South Asian Urban Environments',meta:'NITI Aayog · Feb 2026',id:'j6'},
+  {type:'PEER-REVIEWED',title:'Photovoltaic Efficiency Records: Perovskite-Silicon Tandem Cells at 32.7%',meta:'Science · Jan 2026 · 67 cited',id:'j7'},
+  {type:'INVESTIGATIVE',title:'Inside the Global Misinformation Industrial Complex: A Three-Year Investigation',meta:'The Atlantic · Jan 2026',id:'j8'},
+  {type:'TECH REPORT',title:'State of AI 2026: Benchmarks, Capabilities and Societal Impacts',meta:'Stanford HAI · Apr 2026',id:'j9'},
+  {type:'CLIMATE SCIENCE',title:'Non-Linear Feedback Loops in Arctic Amplification: New Projections',meta:'Nature Climate Change · Apr 2026 · 8 cited',id:'j10'},
+];
+
+const tickerItems=[
+  'India GDP 7.4% — Fastest growing G20 economy','ISRO Scramjet Engine: SUCCESS',
+  'Trichy Smart City AI Traffic LIVE at 48 junctions','Rock Fort illumination upgrade — ₹8.5 crore approved',
+  'K2-18b exoplanet biosignature confirmed by JWST','RBI cuts repo rate 50bps to 5.75%',
+  'TN Green Hydrogen Hub — ₹12,000 crore at Tuticorin','WHO certifies India Guinea Worm Disease free',
+  'India surpasses Germany as 3rd largest economy','Cauvery Grand Anicut: 18.4 ft — Farmers relieved',
+  'NIIT Trichy free AI upskilling for 5,000 youth','Trichy Airport record 1.2M passengers Q1 2026',
+  'G7 Climate Fund $50B pledged for developing nations','Tamil Nadu literacy hits record 98.4%',
+];
+const catNames={world:'WORLD INTELLIGENCE',national:'NATIONAL AFFAIRS',state:'TAMIL NADU STATE',
+  district:'DISTRICT — TIRUCHIRAPPALLI',tech:'TECHNOLOGY',science:'SCIENCE & DISCOVERY',health:'HEALTH & MEDICINE',economy:'ECONOMY & MARKETS'};
+const catList=['world','national','state','district','tech','science','health','economy'];
+
+// ═══════════════════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════════════════
+let currentCat='world';
+let lastUpdate=Date.now();
+let bookmarks=new Set();
+let vkbText='';
+let ghudVisible=true;
+
+// ═══════════════════════════════════════════════════════════
+// RENDER FEED
+// ═══════════════════════════════════════════════════════════
+function renderFeed(cat){
+  currentCat=cat;
+  const data=newsDB[cat]||[];
+  document.getElementById('ftit').textContent=catNames[cat]||cat.toUpperCase();
+  lastUpdate=Date.now();
+  const [feat,...rest]=data;
+  let html='';
+  if(feat) html+=`<div class="featured ani" id="${feat.id}" onclick="openArt('${feat.id}')">
+    <div class="card-meta"><span class="src">${feat.src}</span><span class="ts">${feat.time} ago</span><span class="ndot"></span></div>
+    <div class="ctit">${feat.title}</div>
+    <div class="csum">${feat.sum}</div>
+    <div class="imp"><div class="impf" style="width:${feat.imp*100}%"></div></div>
+  </div>`;
+  for(let i=0;i<rest.length;i+=2){
+    html+=`<div class="grid2">${cardH(rest[i])}${rest[i+1]?cardH(rest[i+1]):''}</div>`;
+  }
+  document.getElementById('feed-content').innerHTML=html;
+  document.querySelectorAll('.ni').forEach(el=>el.classList.toggle('active',el.dataset.cat===cat));
+}
+function cardH(a){
+  return `<div class="sc ani" id="${a.id}" onclick="openArt('${a.id}')">
+    <div class="card-meta"><span class="src">${a.src}</span><span class="ts">${a.time} ago</span></div>
+    <div class="ctit">${a.title}</div><div class="csum">${a.sum}</div>
+    <div class="imp"><div class="impf" style="width:${a.imp*100}%"></div></div>
+  </div>`;
+}
+function findArt(id){for(const cat of Object.values(newsDB)){const f=cat.find(a=>a.id===id);if(f)return f;}return null;}
+
+function openArt(id){
+  const a=findArt(id);if(!a)return;
+  document.getElementById('mcat').textContent=`◈ ${a.src} — ${catNames[currentCat]||currentCat}`;
+  document.getElementById('mtit').textContent=a.title;
+  document.getElementById('msrc').textContent=a.src;
+  document.getElementById('mts').textContent=a.time+' ago';
+  document.getElementById('mbody').innerHTML=a.body||`<p>${a.sum}</p>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+document.getElementById('mbclose').onclick=closeAll;
+document.getElementById('modal').onclick=e=>{if(e.target===document.getElementById('modal'))closeAll();};
+
+function closeAll(){
+  document.getElementById('modal').classList.remove('open');
+  document.getElementById('vkb').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════════
+document.querySelectorAll('.ni').forEach(el=>{
+  el.addEventListener('click',()=>{if(el.dataset.cat)renderFeed(el.dataset.cat);});
+});
+
+// ═══════════════════════════════════════════════════════════
+// JOURNALS
+// ═══════════════════════════════════════════════════════════
+function renderJournals(q=''){
+  const items=journalsDB.filter(j=>!q||j.title.toLowerCase().includes(q)||j.type.toLowerCase().includes(q));
+  document.getElementById('jlist').innerHTML=items.map(j=>`
+    <div class="ji ani" id="${j.id}" onclick="openJournal('${j.id}')">
+      <div class="jt">${j.type}</div>
+      <div class="jtit">${j.title}<span class="aib">AI</span></div>
+      <div class="jme">${j.meta}</div>
+    </div>`).join('');
+}
+function openJournal(id){
+  const j=journalsDB.find(x=>x.id===id);if(!j)return;
+  document.getElementById('mcat').textContent=`◈ ${j.type}`;
+  document.getElementById('mtit').textContent=j.title;
+  document.getElementById('msrc').textContent=j.type;
+  document.getElementById('mts').textContent=j.meta;
+  document.getElementById('mbody').innerHTML=`<p style="color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:10px">⟳ AI GENERATING SUMMARY...</p><p>This is an interactive preview. The full system queries the Anthropic Claude API to generate structured summaries, key findings, methodology critiques, and citation networks for this publication.</p><p><strong style="color:var(--text)">Publication:</strong> ${j.meta}</p>`;
+  document.getElementById('modal').classList.add('open');
+}
+document.getElementById('srch').addEventListener('input',e=>renderJournals(e.target.value.toLowerCase()));
+
+// ═══════════════════════════════════════════════════════════
+// VIRTUAL KEYBOARD
+// ═══════════════════════════════════════════════════════════
+function updateVkbDisplay(){
+  document.getElementById('vkb-display').textContent=vkbText||(String.fromCharCode(0x2015)+' TYPE USING GESTURES '+String.fromCharCode(0x2015));
+}
+document.querySelectorAll('.vkey').forEach(k=>{
+  k.addEventListener('click',()=>{
+    const key=k.dataset.k;
+    if(key==='BACK') vkbText=vkbText.slice(0,-1);
+    else if(key==='CLEAR') vkbText='';
+    else vkbText+=key;
+    updateVkbDisplay();
+    if(vkbText) renderJournals(vkbText.toLowerCase());
+  });
+});
+document.getElementById('vkb-close').onclick=()=>document.getElementById('vkb').classList.remove('open');
+document.getElementById('vkb-search').onclick=()=>{
+  if(vkbText){renderJournals(vkbText.toLowerCase());document.getElementById('srch').value=vkbText;}
+  document.getElementById('vkb').classList.remove('open');
+};
+updateVkbDisplay();
+
+// ═══════════════════════════════════════════════════════════
+// TICKER
+// ═══════════════════════════════════════════════════════════
+document.getElementById('tin').innerHTML=tickerItems.join('<span class="tsep"> ◈ </span>')+' ';
+
+// ═══════════════════════════════════════════════════════════
+// UPDATE TIMER
+// ═══════════════════════════════════════════════════════════
+setInterval(()=>{
+  const s=Math.round((Date.now()-lastUpdate)/1000);
+  document.getElementById('uinf').textContent=`UPDATED ${s}s AGO`;
+},1000);
+let uc=0;
+setInterval(()=>{
+  uc++;
+  const bids=['bw','bn','bs','bd'];
+  const b=document.getElementById(bids[uc%bids.length]);
+  if(b)b.textContent=parseInt(b.textContent||0)+1;
+},11000);
+
+// ═══════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════
+let toastTimer=null;
+function showToast(msg,color='var(--cyan)'){
+  const t=document.getElementById('gtoast');
+  t.textContent=msg;t.style.color=color;t.style.borderColor=color;
+  t.classList.add('show');clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+// ═══════════════════════════════════════════════════════════
+// GESTURE HUD
+// ═══════════════════════════════════════════════════════════
+document.getElementById('ghud').classList.add('show');
+function setGhudActive(id){
+  document.querySelectorAll('.ghud-row').forEach(r=>r.classList.remove('ghud-active'));
+  if(id){const el=document.getElementById(id);if(el)el.classList.add('ghud-active');}
+}
+
+// ═══════════════════════════════════════════════════════════
+// TWO-HAND INDICATOR
+// ═══════════════════════════════════════════════════════════
+let thTimer=null;
+function showTwoHandInd(label,icon='✦'){
+  const ind=document.getElementById('twohand-ind');
+  document.getElementById('th-ring-icon').textContent=icon;
+  document.getElementById('th-label').textContent=label;
+  ind.classList.add('show');clearTimeout(thTimer);
+  thTimer=setTimeout(()=>ind.classList.remove('show'),1200);
+}
+
+// ═══════════════════════════════════════════════════════════
+// MEDIAPIPE TWO-HAND SYSTEM
+// ═══════════════════════════════════════════════════════════
+let hands=null,camera=null;
+const catList_=catList;
+const gcR=document.getElementById('gcR');
+const gcL=document.getElementById('gcL');
+const gtag=document.getElementById('gtag');
+const hlGest=document.getElementById('hl-gest');
+const hrGest=document.getElementById('hr-gest');
+
+// State per hand
+const S={
+  R:{x:0,y:0,gest:'',lastGest:'',swipeStartX:null,pinchFired:false},
+  L:{x:0,y:0,gest:'',lastGest:'',swipeStartX:null,pinchFired:false}
+};
+let prevDist=null;       // for two-hand pinch/spread
+let bothClapTimer=null;
+let lastTwoHand='';
+let hoveredEl=null;
+
+// Gesture debounce
+const gestCooldown={};
+function canFire(key,ms=400){
+  const now=Date.now();
+  if(!gestCooldown[key]||now-gestCooldown[key]>ms){gestCooldown[key]=now;return true;}
+  return false;
+}
+
+document.getElementById('cam-btn').addEventListener('click',initCam);
+
+function initCam(){
+  document.getElementById('cam-btn').style.display='none';
+  gtag.textContent='⟳ INITIALIZING DUAL-HAND ENGINE...';
+  if(typeof Hands==='undefined'){gtag.textContent='⚠ MEDIAPIPE UNAVAILABLE';document.getElementById('cam-btn').style.display='flex';return;}
+
+  hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+  hands.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:0.72,minTrackingConfidence:0.72});
+  hands.onResults(onResults);
+
+  const video=document.getElementById('video');
+  camera=new Camera(video,{onFrame:async()=>{await hands.send({image:video});},width:320,height:240});
+  camera.start().then(()=>{
+    gtag.textContent='✓ DUAL-HAND CAM ONLINE';
+    document.getElementById('ghud').classList.add('show');
+  }).catch(err=>{
+    gtag.textContent='✕ PERMISSION DENIED';
+    document.getElementById('cam-btn').style.display='flex';
+  });
+}
+
+function onResults(results){
+  const canvas=document.getElementById('hand-canvas');
+  const video=document.getElementById('video');
+  canvas.width=video.videoWidth||320;canvas.height=video.videoHeight||240;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Build per-hand data from MediaPipe
+  const handsData={R:null,L:null};
+  if(results.multiHandLandmarks){
+    results.multiHandLandmarks.forEach((lm,i)=>{
+      const label=results.multiHandedness[i].label; // "Left" or "Right" from camera (mirrored)
+      // MediaPipe: "Left" = user's right hand (camera is mirrored)
+      const side=label==='Right'?'L':'R';
+      handsData[side]={lm,label};
+      drawHand(ctx,lm,canvas.width,canvas.height,side==='R'?'#00d4ff':'#ffaa00');
+    });
+  }
+
+  processHands(handsData.R,handsData.L);
+}
+
+function drawHand(ctx,lm,w,h,color){
+  const conn=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+  ctx.strokeStyle=color+'aa';ctx.lineWidth=1.2;
+  conn.forEach(([a,b])=>{
+    ctx.beginPath();ctx.moveTo(lm[a].x*w,lm[a].y*h);ctx.lineTo(lm[b].x*w,lm[b].y*h);ctx.stroke();
+  });
+  lm.forEach((p,i)=>{
+    ctx.beginPath();ctx.arc(p.x*w,p.y*h,i===0?4:2.5,0,Math.PI*2);
+    ctx.fillStyle=i===0?color:color+'cc';ctx.fill();
+  });
+}
+
+function detectGestureForHand(lm){
+  const t=lm[4],i=lm[8];
+  const pinchD=Math.hypot(t.x-i.x,t.y-i.y);
+  if(pinchD<0.065) return 'PINCH';
+  const iUp=lm[8].y<lm[6].y;
+  const mUp=lm[12].y<lm[10].y;
+  const rUp=lm[16].y<lm[14].y;
+  const pUp=lm[20].y<lm[18].y;
+  const thumbUp=lm[4].y<lm[3].y;
+  if(iUp&&mUp&&rUp&&pUp) return 'OPEN_PALM';
+  if(iUp&&mUp&&!rUp&&!pUp) return 'PEACE';
+  if(iUp&&!mUp&&!rUp&&!pUp) return 'POINT';
+  if(thumbUp&&!iUp&&!mUp&&!rUp&&!pUp) return 'THUMBS_UP';
+  if(!iUp&&!mUp&&!rUp&&!pUp&&!thumbUp) return 'FIST';
+  return 'IDLE';
+}
+
+function processHands(Rdata,Ldata){
+  // ── HIDE cursors by default ──
+  let rVisible=false,lVisible=false;
+
+  // ── SINGLE HAND PROCESSING ──
+  if(Rdata){
+    rVisible=true;
+    const lm=Rdata.lm;
+    const g=detectGestureForHand(lm);
+    S.R.gest=g;
+    const screenX=(1-lm[8].x)*window.innerWidth;
+    const screenY=lm[8].y*window.innerHeight;
+    S.R.x=screenX;S.R.y=screenY;
+    hrGest.textContent=g.replace('_',' ');
+
+    gcR.style.left=screenX+'px';gcR.style.top=screenY+'px';
+    gcR.classList.toggle('pinching',g==='PINCH');
+    gcR.classList.toggle('pointing',g==='POINT');
+
+    // RIGHT POINT → cursor hover highlight
+    if(g==='POINT'){
+      setGhudActive('gh-point');
+      highlightUnder(screenX,screenY);
+    }
+
+    // RIGHT PINCH → SELECT / CLICK
+    if(g==='PINCH'&&S.R.lastGest!=='PINCH'){
+      setGhudActive('gh-pinch');
+      if(canFire('rPinch',350)){
+        const el=document.elementFromPoint(screenX,screenY);
+        if(el){
+          const card=el.closest('.featured,.sc,.ni,.ji,.vkey');
+          if(card)card.click();
+        }
+      }
+    }
+
+    // RIGHT OPEN_PALM → SCROLL FEED
+    if(g==='OPEN_PALM'){
+      setGhudActive('gh-palm');
+      const palmY=lm[0].y;
+      const feed=document.getElementById('feed');
+      if(palmY<0.38) feed.scrollBy(0,-10);
+      else if(palmY>0.62) feed.scrollBy(0,10);
+    }
+
+    // RIGHT PEACE → BOOKMARK
+    if(g==='PEACE'&&S.R.lastGest!=='PEACE'){
+      setGhudActive('gh-peace');
+      if(canFire('peace',500)){
+        const el=document.elementFromPoint(screenX,screenY);
+        if(el){const card=el.closest('.featured,.sc');if(card){bookmarks.add(card.id);showToast('✓ ARTICLE BOOKMARKED','{var(--green)}');}}
+        showToast('◈ BOOKMARKED',`var(--green)`);
+      }
+    }
+
+    S.R.lastGest=g;
+  } else {
+    S.R.gest='';hrGest.textContent='—';clearHover();
+  }
+
+  if(Ldata){
+    lVisible=true;
+    const lm=Ldata.lm;
+    const g=detectGestureForHand(lm);
+    S.L.gest=g;
+    const screenX=(1-lm[8].x)*window.innerWidth;
+    const screenY=lm[8].y*window.innerHeight;
+    S.L.x=screenX;S.L.y=screenY;
+    hlGest.textContent=g.replace('_',' ');
+
+    gcL.style.left=screenX+'px';gcL.style.top=screenY+'px';
+
+    // LEFT SWIPE → change category
+    const wx=lm[0].x;
+    if(S.L.swipeStartX===null) S.L.swipeStartX=wx;
+    const delta=S.L.swipeStartX-wx;
+    if(Math.abs(delta)>0.17){
+      setGhudActive('gh-swipe');
+      if(canFire('swipe',600)){
+        const idx=catList_.indexOf(currentCat);
+        if(delta>0&&idx<catList_.length-1){renderFeed(catList_[idx+1]);showToast('▶ '+catNames[catList_[idx+1]].split(' ')[0],`var(--amber)`);}
+        else if(delta<0&&idx>0){renderFeed(catList_[idx-1]);showToast('◀ '+catNames[catList_[idx-1]].split(' ')[0],`var(--amber)`);}
+      }
+      S.L.swipeStartX=wx;
+    } else {
+      S.L.swipeStartX=wx*0.25+S.L.swipeStartX*0.75;
+    }
+
+    // LEFT PINCH → OPEN KEYBOARD
+    if(g==='PINCH'&&S.L.lastGest!=='PINCH'){
+      setGhudActive('gh-lpinch');
+      if(canFire('lPinch',600)){
+        const kb=document.getElementById('vkb');
+        if(!kb.classList.contains('open')){kb.classList.add('open');showToast('⌨ HOLOGRAPHIC KEYBOARD OPEN',`var(--purple)`);}
+      }
+    }
+
+    // LEFT OPEN PALM → scroll journals
+    if(g==='OPEN_PALM'){
+      const palmY=lm[0].y;
+      const jl=document.getElementById('jlist');
+      if(palmY<0.38) jl.scrollBy(0,-10);
+      else if(palmY>0.62) jl.scrollBy(0,10);
+    }
+
+    S.L.lastGest=g;
+  } else {
+    S.L.gest='';hlGest.textContent='—';
+    S.L.swipeStartX=null;
+  }
+
+  gcR.style.display=rVisible?'block':'none';
+  gcL.style.display=lVisible?'block':'none';
+
+  // ── TWO-HAND GESTURES ──
+  if(Rdata&&Ldata){
+    const Rlm=Rdata.lm,Llm=Ldata.lm;
+    const Rg=S.R.gest,Lg=S.L.gest;
+
+    // Calc hand center distance
+    const Rwx=Rlm[0].x,Rwy=Rlm[0].y;
+    const Lwx=Llm[0].x,Lwy=Llm[0].y;
+    const dist=Math.hypot(Rwx-Lwx,Rwy-Lwy);
+
+    // ──────────────────────────────────────────
+    // 1. BOTH PINCH → CLOSE EVERYTHING
+    // ──────────────────────────────────────────
+    if(Rg==='PINCH'&&Lg==='PINCH'){
+      setGhudActive('gh-both-pinch');
+      if(canFire('bothPinch',700)){
+        showTwoHandInd('CLOSE ALL','✕');
+        closeAll();showToast('✕ ALL PANELS CLOSED',`var(--red)`);
+      }
+    }
+
+    // ──────────────────────────────────────────
+    // 2. BOTH OPEN PALM (spread far) → EXPAND article
+    // ──────────────────────────────────────────
+    else if(Rg==='OPEN_PALM'&&Lg==='OPEN_PALM'){
+      setGhudActive('gh-spread');
+      if(dist>0.45){
+        if(canFire('spread',800)){
+          showTwoHandInd('EXPAND','⬡');
+          // Open first article in feed
+          const feat=document.querySelector('.featured');
+          if(feat) feat.click();
+          showToast('⬡ ARTICLE EXPANDED',`var(--cyan)`);
+        }
+      }
+    }
+
+    // ──────────────────────────────────────────
+    // 3. HANDS BROUGHT TOGETHER (clap near) → REFRESH FEED
+    // ──────────────────────────────────────────
+    else if(Rg==='OPEN_PALM'&&Lg==='OPEN_PALM'&&dist<0.15){
+      setGhudActive('gh-clap');
+      if(canFire('clap',1000)){
+        showTwoHandInd('REFRESH','⟳');
+        renderFeed(currentCat);showToast('⟳ FEED REFRESHED',`var(--green)`);
+      }
+    }
+
+    // ──────────────────────────────────────────
+    // 4. BOTH POINT → TOGGLE GESTURE GUIDE
+    // ──────────────────────────────────────────
+    else if(Rg==='POINT'&&Lg==='POINT'){
+      setGhudActive('gh-cross');
+      if(canFire('bothPoint',700)){
+        showTwoHandInd('TOGGLE GUIDE','◈');
+        ghudVisible=!ghudVisible;
+        const ghud=document.getElementById('ghud');
+        ghud.style.opacity=ghudVisible?'1':'0';ghud.style.pointerEvents=ghudVisible?'auto':'none';
+        showToast(ghudVisible?'◈ GUIDE VISIBLE':'◈ GUIDE HIDDEN',`var(--purple)`);
+      }
+    }
+
+    // ──────────────────────────────────────────
+    // 5. LEFT POINT + RIGHT PINCH → DRAG-SCROLL FEED
+    // ──────────────────────────────────────────
+    else if(Lg==='POINT'&&Rg==='PINCH'){
+      const feed=document.getElementById('feed');
+      const dy=(Rlm[8].y-0.5)*24;
+      feed.scrollBy(0,dy);
+    }
+
+    // ──────────────────────────────────────────
+    // 6. BOTH THUMBS UP → NEXT CATEGORY
+    // ──────────────────────────────────────────
+    else if(Rg==='THUMBS_UP'&&Lg==='THUMBS_UP'){
+      if(canFire('bothThumb',900)){
+        const idx=catList_.indexOf(currentCat);
+        const next=catList_[(idx+1)%catList_.length];
+        showTwoHandInd('NEXT CATEGORY','▶');
+        renderFeed(next);showToast('▶ '+catNames[next],`var(--amber)`);
+      }
+    }
+
+    // ──────────────────────────────────────────
+    // 7. LEFT FIST + RIGHT PEACE → OPEN KEYBOARD
+    // ──────────────────────────────────────────
+    else if(Lg==='FIST'&&Rg==='PEACE'){
+      if(canFire('fistPeace',700)){
+        const kb=document.getElementById('vkb');
+        if(!kb.classList.contains('open')){
+          kb.classList.add('open');
+          showTwoHandInd('KEYBOARD','⌨');
+          showToast('⌨ KEYBOARD OPENED',`var(--purple)`);
+        }
+      }
+    }
+
+    // ──────────────────────────────────────────
+    // 8. PINCH ZOOM (one hand pinch, other point — measure distance change)
+    // ──────────────────────────────────────────
+    if(prevDist!==null&&(Rg==='OPEN_PALM'||Lg==='OPEN_PALM')){
+      const dDist=dist-prevDist;
+      if(Math.abs(dDist)>0.03){
+        const feed=document.getElementById('feed');
+        const sz=parseFloat(getComputedStyle(feed).fontSize)||14;
+        const newSz=Math.max(10,Math.min(18,sz+(dDist>0?0.4:-0.4)));
+        feed.style.fontSize=newSz+'px';
+      }
+    }
+    prevDist=dist;
+  } else {
+    prevDist=null;
+    if(!Rdata&&!Ldata){
+      setGhudActive(null);
+      gtag.textContent='✓ DUAL-HAND CAM ONLINE — SHOW HANDS';
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// GESTURE HOVER HIGHLIGHTS
+// ═══════════════════════════════════════════════════════════
+function highlightUnder(x,y){
+  clearHover();
+  const el=document.elementFromPoint(x,y);
+  if(el){
+    const card=el.closest('.featured,.sc,.ni,.ji,.vkey');
+    if(card){card.classList.add('gest-hover');hoveredEl=card;}
+  }
+}
+function clearHover(){
+  if(hoveredEl){hoveredEl.classList.remove('gest-hover');hoveredEl=null;}
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+renderFeed('world');
+renderJournals();
+</script>
+</body>
+</html>
